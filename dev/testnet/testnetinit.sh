@@ -13,11 +13,8 @@ rm -rf $HOME/*
 
 mkdir -p $HOME/testnet_datadir
 
-# for the seed node to connect to the bootstrap node
+# for the startup node to connect to the bootstrap node
 ARGS+=" --p2p-seed-node=127.0.0.1:12001"
-ARGS+=" --chain-id=$CHAIN_ID"
-
-BOOTARGS+=" --chain-id=$CHAIN_ID"
 
 # copy over config for testnet init and bootstrap nodes
 cp /etc/steemd/testnet.config.ini $HOME/config.ini
@@ -27,6 +24,15 @@ chown steemd:steemd $HOME/config.ini
 chown steemd:steemd $HOME/testnet_datadir/config.ini
 
 cd $HOME
+
+echo -en '\n' >> config.ini
+echo -en '\n' >> testnet_datadir/config.ini
+
+echo chain-id = $CHAIN_ID >> config.ini
+echo chain-id = $CHAIN_ID >> testnet_datadir/config.ini
+
+echo -en '\n' >> config.ini
+echo -en '\n' >> testnet_datadir/config.ini
 
 mv /etc/nginx/nginx.conf /etc/nginx/nginx.original.conf
 cp /etc/nginx/steemd.nginx.conf /etc/nginx/nginx.conf
@@ -59,7 +65,6 @@ exec chpst -usteemd \
         --webserver-http-endpoint=0.0.0.0:9990 \
         --p2p-endpoint=0.0.0.0:12001 \
         --data-dir=$HOME/testnet_datadir \
-        $BOOTARGS \
         2>&1&
 
 # give the bootstrap node some time to startup
@@ -73,9 +78,6 @@ echo steemd-testnet: pipelining transactions into bootstrap node, this may take 
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -f fail.json --timeout 1000
-
-# add a newline to the config file in case it does not end with a newline
-echo -en '\n' >> config.ini
 
 # add witness names to config file
 i=0 ; while [ $i -lt 21 ] ; do echo witness = '"'init-$i'"' >> config.ini ; let i=i+1 ; done
