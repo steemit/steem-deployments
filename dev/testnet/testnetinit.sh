@@ -72,7 +72,7 @@ echo steemd-testnet: pipelining transactions into bootstrap node, this may take 
   cat txgen.list \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
-tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -f fail.json -c $CHAIN_ID --timeout 1000
+tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -f fail.json -n $CHAIN_NAME --timeout 1000
 
 # add a newline to the config file in case it does not end with a newline
 echo -en '\n' >> config.ini
