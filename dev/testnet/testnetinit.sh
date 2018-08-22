@@ -86,7 +86,7 @@ i=0 ; while [ $i -lt 21 ] ; do echo witness = '"'init-$i'"' >> config.ini ; let 
 $UTILS/get_dev_key $SHARED_SECRET block-init-0:21 | cut -d '"' -f 4 | sed 's/^/private-key = /' >> config.ini
 
 # sleep for an arbitrary amount of time before starting the seed
-sleep 300
+sleep 10
 
 # let's get going
 echo steemd-testnet: bringing up witness / seed / full node
