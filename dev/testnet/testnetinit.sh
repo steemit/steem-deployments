@@ -52,6 +52,8 @@ pip install .
 
 cd $HOME
 
+cp $HOME/tinman/gatling.conf.example $HOME/gatling.conf
+
 # get latest actions list from s3
 aws s3 cp s3://$S3_BUCKET/txgen-latest.list ./txgen.list
 
@@ -104,4 +106,34 @@ exec chpst -usteemd \
         --p2p-endpoint=0.0.0.0:2001 \
         --data-dir=$HOME \
         $ARGS \
-        2>&1
+        2>&1&
+
+# wait for seed to be synced before proceeding
+BLOCK_AGE=500
+while [[ BLOCK_AGE -ge 1 ]]
+do
+BLOCKCHAIN_TIME=$(
+    curl --silent --max-time 3 \
+        --data '{"jsonrpc":"2.0","id":39,"method":"database_api.get_dynamic_global_properties"}' \
+        localhost:8091 | jq -r .result.time
+)
+BLOCKCHAIN_SECS=`date -d $BLOCKCHAIN_TIME +%s`
+CURRENT_SECS=`date +%s`
+BLOCK_AGE=$((${CURRENT_SECS} - ${BLOCKCHAIN_SECS}))
+sleep 60
+done
+
+echo steemd-testnet: seed is synced
+
+echo steemd-testnet: launching gatling to pipe transactions from mainnet to testnet
+#launch gatling
+( \
+  echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
+  tinman gatling -c gatling.conf -f 0 -t 0 -o - \
+) | \
+tinman keysub --get-dev-key $UTILS/get_dev_key | \
+tinman submit --realtime -t http://127.0.0.1:8091 \
+    --signer $UTILS/sign_transaction \
+    --realtime \
+    --fail gatling_fail.json
+    --timeout 600
