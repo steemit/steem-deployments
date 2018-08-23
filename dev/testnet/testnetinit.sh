@@ -104,4 +104,16 @@ exec chpst -usteemd \
         --p2p-endpoint=0.0.0.0:2001 \
         --data-dir=$HOME \
         $ARGS \
-        2>&1
+        2>&1&
+
+#launch gatling
+( \
+  echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
+  tinman gatling -o - \
+) | \
+tinman keysub --get-dev-key $UTILS/get_dev_key | \
+tinman submit --realtime -t http://127.0.0.1:8091 \
+    --signer $UTILS/sign_transaction \
+    --realtime \
+    --fail gatling_fail.json
+    --timeout 600
