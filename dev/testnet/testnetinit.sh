@@ -105,6 +105,9 @@ exec chpst -usteemd \
         $ARGS \
         2>&1&
 
+# give the seed some time to start up
+sleep 120
+
 # wait for seed to be synced before proceeding
 BLOCK_AGE=500
 while [[ BLOCK_AGE -ge 1 ]]
@@ -132,5 +135,6 @@ tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:8091 \
     --signer $UTILS/sign_transaction \
     --realtime \
-    --fail gatling_fail.json
+    --fail gatling_fail.json \
+    -c $CHAIN_ID \
     --timeout 600
