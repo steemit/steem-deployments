@@ -110,7 +110,7 @@ sleep 120
 
 # wait for seed to be synced before proceeding
 BLOCK_AGE=500
-while [[ BLOCK_AGE -ge 1 ]]
+while [[ BLOCK_AGE -ge 3 ]]
 do
 BLOCKCHAIN_TIME=$(
     curl --silent --max-time 3 \
