@@ -110,7 +110,7 @@ sleep 120
 
 # wait for seed to be synced before proceeding
 BLOCK_AGE=500
-while [[ BLOCK_AGE -ge 1 ]]
+while [[ BLOCK_AGE -ge 3 ]]
 do
 BLOCKCHAIN_TIME=$(
     curl --silent --max-time 3 \
@@ -120,11 +120,15 @@ BLOCKCHAIN_TIME=$(
 BLOCKCHAIN_SECS=`date -d $BLOCKCHAIN_TIME +%s`
 CURRENT_SECS=`date +%s`
 BLOCK_AGE=$((${CURRENT_SECS} - ${BLOCKCHAIN_SECS}))
+echo steemd-testnet: waiting for seed to be synced, $BLOCK_AGE seconds behind
 sleep 60
 done
 
 echo steemd-testnet: seed is synced
 
+finished=0
+while [[ $finished == 0 ]]
+do
 echo steemd-testnet: launching gatling to pipe transactions from mainnet to testnet
 #launch gatling
 ( \
@@ -138,3 +142,7 @@ tinman submit --realtime -t http://127.0.0.1:8091 \
     --fail gatling_fail.json \
     -c $CHAIN_ID \
     --timeout 600
+
+# prevent flapping
+sleep 60
+done
