@@ -109,19 +109,12 @@ exec chpst -usteemd \
 sleep 120
 
 # wait for seed to be synced before proceeding
-BLOCK_AGE=500
-while [[ BLOCK_AGE -ge 3 ]]
+while [[ $all_clear -ne 0 ]]
 do
-BLOCKCHAIN_TIME=$(
-    curl --silent --max-time 3 \
-        --data '{"jsonrpc":"2.0","id":39,"method":"database_api.get_dynamic_global_properties"}' \
-        localhost:8091 | jq -r .result.time
-)
-BLOCKCHAIN_SECS=`date -d $BLOCKCHAIN_TIME +%s`
-CURRENT_SECS=`date +%s`
-BLOCK_AGE=$((${CURRENT_SECS} - ${BLOCKCHAIN_SECS}))
-echo steemd-testnet: waiting for seed to be synced, $BLOCK_AGE seconds behind
-sleep 60
+    tinman warden -s http://127.0.0.1:8091
+    all_clear=$?
+    echo Waiting for warden to sound the all-clear.
+    sleep 60
 done
 
 echo steemd-testnet: seed is synced
