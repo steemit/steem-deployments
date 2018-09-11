@@ -45,10 +45,11 @@ pip install .
 
 cd $HOME
 
+cp $HOME/tinman/txgen.conf.example $HOME/txgen.conf
 cp $HOME/tinman/gatling.conf.example $HOME/gatling.conf
 
-# get latest actions list from s3
-aws s3 cp s3://$S3_BUCKET/txgen-latest.list ./txgen.list
+# get latest snapshot from s3, used by tinman txgen
+aws s3 cp s3://$S3_BUCKET/snapshot.json $HOME/snapshot.json
 
 chown -R steemd:steemd $HOME/*
 
@@ -70,10 +71,10 @@ sleep 120
 echo steemd-testnet: pipelining transactions into bootstrap node, this may take some time
 ( \
   echo [\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}] ; \
-  cat txgen.list \
+  tinman txgen \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
-tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -f fail.json -c $CHAIN_ID --timeout 1000
+tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
 
 # add a newline to the config file in case it does not end with a newline
 echo -en '\n' >> config.ini
@@ -109,19 +110,12 @@ exec chpst -usteemd \
 sleep 120
 
 # wait for seed to be synced before proceeding
-BLOCK_AGE=500
-while [[ BLOCK_AGE -ge 3 ]]
+while [[ $all_clear -ne 0 ]]
 do
-BLOCKCHAIN_TIME=$(
-    curl --silent --max-time 3 \
-        --data '{"jsonrpc":"2.0","id":39,"method":"database_api.get_dynamic_global_properties"}' \
-        localhost:8091 | jq -r .result.time
-)
-BLOCKCHAIN_SECS=`date -d $BLOCKCHAIN_TIME +%s`
-CURRENT_SECS=`date +%s`
-BLOCK_AGE=$((${CURRENT_SECS} - ${BLOCKCHAIN_SECS}))
-echo steemd-testnet: waiting for seed to be synced, $BLOCK_AGE seconds behind
-sleep 60
+    tinman warden -s http://127.0.0.1:8091
+    all_clear=$?
+    echo Waiting for warden to sound the all-clear.
+    sleep 60
 done
 
 echo steemd-testnet: seed is synced
@@ -138,8 +132,6 @@ echo steemd-testnet: launching gatling to pipe transactions from mainnet to test
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:8091 \
     --signer $UTILS/sign_transaction \
-    --realtime \
-    --fail gatling_fail.json \
     -c $CHAIN_ID \
     --timeout 600
 
