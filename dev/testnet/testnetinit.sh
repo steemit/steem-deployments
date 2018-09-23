@@ -45,11 +45,10 @@ pip install .
 
 cd $HOME
 
-cp $HOME/tinman/txgen.conf.example $HOME/txgen.conf
 cp $HOME/tinman/gatling.conf.example $HOME/gatling.conf
 
-# get latest snapshot from s3, used by tinman txgen
-aws s3 cp s3://$S3_BUCKET/snapshot.json $HOME/snapshot.json
+# get latest actions list from s3
+aws s3 cp s3://$S3_BUCKET/txgen-latest.list ./txgen.list
 
 chown -R steemd:steemd $HOME/*
 
@@ -71,7 +70,7 @@ sleep 120
 echo steemd-testnet: pipelining transactions into bootstrap node, this may take some time
 ( \
   echo [\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}] ; \
-  tinman txgen \
+  cat txgen.list \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
