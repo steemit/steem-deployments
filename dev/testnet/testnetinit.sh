@@ -31,7 +31,7 @@ mv /etc/nginx/nginx.conf /etc/nginx/nginx.original.conf
 cp /etc/nginx/steemd.nginx.conf /etc/nginx/nginx.conf
 
 # for appbase tags plugin loading
-ARGS+=" --tags-skip-startup-update"
+ARGS+=" --tags-skip-startup-update=true"
 
 cd $HOME
 
