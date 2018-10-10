@@ -46,6 +46,7 @@ pip install .
 cd $HOME
 
 cp $HOME/tinman/gatling.conf.example $HOME/gatling.conf
+cp $HOME/tinman/durables.conf.example $HOME/durables.conf
 
 # get latest actions list from s3
 aws s3 cp s3://$S3_BUCKET/txgen-latest.list ./txgen.list
@@ -71,6 +72,15 @@ echo steemd-testnet: pipelining transactions into bootstrap node, this may take 
 ( \
   echo [\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}] ; \
   cat txgen.list \
+) | \
+tinman keysub --get-dev-key $UTILS/get_dev_key | \
+tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
+
+# add durable objects to the testnet after bootstrapping accounts
+echo steemd-testnet: adding durables into bootstrap node, this will take much less time
+( \
+  echo [\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}] ; \
+  tinman durables -c durables.conf \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
