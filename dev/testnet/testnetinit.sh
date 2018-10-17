@@ -119,6 +119,9 @@ exec chpst -usteemd \
 sleep 120
 
 # wait for seed to be synced before proceeding
+
+all_clear=1
+
 while [[ $all_clear -ne 0 ]]
 do
     tinman warden -s http://127.0.0.1:8091
