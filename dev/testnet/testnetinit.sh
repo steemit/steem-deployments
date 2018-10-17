@@ -131,7 +131,7 @@ echo steemd-testnet: launching gatling to pipe transactions from mainnet to test
 ( \
   echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
   tinman durables -c durables.conf ; \
-  tinman gatling -c gatling.conf -f 0 -t 0 -o - \
+  tinman gatling -c gatling.conf -f 0 -t 0 -o - | tinman prefixsub \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:8091 \
