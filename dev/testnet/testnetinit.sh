@@ -76,15 +76,6 @@ echo steemd-testnet: pipelining transactions into bootstrap node, this may take 
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
 
-# add durable objects to the testnet after bootstrapping accounts
-echo steemd-testnet: adding durables into bootstrap node, this will take much less time
-( \
-  echo [\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}] ; \
-  tinman durables -c durables.conf \
-) | \
-tinman keysub --get-dev-key $UTILS/get_dev_key | \
-tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
-
 # add a newline to the config file in case it does not end with a newline
 echo -en '\n' >> config.ini
 
@@ -119,6 +110,9 @@ exec chpst -usteemd \
 sleep 120
 
 # wait for seed to be synced before proceeding
+
+all_clear=1
+
 while [[ $all_clear -ne 0 ]]
 do
     tinman warden -s http://127.0.0.1:8091
@@ -136,7 +130,8 @@ echo steemd-testnet: launching gatling to pipe transactions from mainnet to test
 #launch gatling
 ( \
   echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
-  tinman gatling -c gatling.conf -f 0 -t 0 -o - \
+  tinman durables -c durables.conf ; \
+  tinman gatling -c gatling.conf -f 0 -t 0 -o - | tinman prefixsub \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:8091 \
