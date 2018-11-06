@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This file is primarily for debugging purposes and may be deleted at any time. If you need to rely on it, make your own copy, or create a pr to remove this line.
+
 UTILS="/usr/local/steemd-testnet/bin"
 
 chown -R steemd:steemd $HOME
