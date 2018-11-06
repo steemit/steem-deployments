@@ -29,6 +29,7 @@ cd $HOME
 
 mv /etc/nginx/nginx.conf /etc/nginx/nginx.original.conf
 cp /etc/nginx/steemd.nginx.conf /etc/nginx/nginx.conf
+cp ./testnet-web-console.conf /etc/nginx/sites-enabled/testnet-web-console.conf
 
 # for appbase tags plugin loading
 ARGS+=" --tags-skip-startup-update"
