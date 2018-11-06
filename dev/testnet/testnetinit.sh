@@ -29,6 +29,7 @@ cd $HOME
 
 mv /etc/nginx/nginx.conf /etc/nginx/nginx.original.conf
 cp /etc/nginx/steemd.nginx.conf /etc/nginx/nginx.conf
+cp ./testnet-web-console.conf /etc/nginx/sites-enabled/testnet-web-console.conf
 
 # for appbase tags plugin loading
 ARGS+=" --tags-skip-startup-update"
@@ -122,6 +123,17 @@ do
 done
 
 echo steemd-testnet: seed is synced
+
+jq ".shared_secret=\"$SHARED_SECRET\"" $HOME/tinman/server.conf.example > $HOME/server.conf
+
+chown -R steemd:steemd $HOME/*
+
+echo server-testnet: starting server on port 5000
+tinman server \
+  --get-dev-key $UTILS/get_dev_key \
+  --signer $UTILS/sign_transaction \
+  --timeout 600 \
+  -c $CHAIN_ID &
 
 finished=0
 while [[ $finished == 0 ]]
