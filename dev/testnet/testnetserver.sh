@@ -34,4 +34,5 @@ tinman server \
   --get-dev-key $UTILS/get_dev_key \
   --signer $UTILS/sign_transaction \
   --timeout 600 \
-  -c $CHAIN_ID
+  --chain-id $CHAIN_ID
+
