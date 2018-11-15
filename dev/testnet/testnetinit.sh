@@ -126,7 +126,9 @@ done
 
 echo steemd-testnet: seed is synced
 
-jq ".shared_secret=\"$SHARED_SECRET\"" $HOME/tinman/server.conf.example > $HOME/server.conf
+jq ".shared_secret=\"$SHARED_SECRET\"" $HOME/tinman/server.conf.example > $HOME/server.conf.temp
+jq ".transaction_target.node=\"http://127.0.0.1:8091\"" $HOME/server.conf.temp > $HOME/server.conf
+rm $HOME/server.conf.temp
 
 chown -R steemd:steemd $HOME/*
 
