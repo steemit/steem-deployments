@@ -52,7 +52,16 @@ cp $HOME/tinman/gatling.conf.example $HOME/gatling.conf
 cp $HOME/tinman/durables.conf.example $HOME/durables.conf
 
 # get latest actions list from s3
-aws s3 cp s3://$S3_BUCKET/txgen-latest.list ./txgen.list
+if [[ -n "$SKIP_MAIN_ACCOUNT_CREATION" ]]; then
+  echo steemd-testnet: actions will skip main account creation and backfill
+  aws s3 cp s3://$S3_BUCKET/no-accounts-txgen-latest.actions ./txgen.actions
+elif [[ -n "$SKIP_BACKFILL_ACTIONS" ]]; then
+  echo steemd-testnet: actions will skip backfill
+  aws s3 cp s3://$S3_BUCKET/txgen-latest.actions ./txgen.actions
+else
+  echo "steemd-testnet: using full actions (with backfill and main account creation)"
+  aws s3 cp s3://$S3_BUCKET/txgen-backfill-latest.actions ./txgen.actions
+fi
 
 chown -R steemd:steemd $HOME/*
 
@@ -74,7 +83,7 @@ sleep 120
 echo steemd-testnet: pipelining transactions into bootstrap node, this may take some time
 ( \
   echo [\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}] ; \
-  cat txgen.list \
+  cat txgen.actions \
 ) | \
 tinman keysub --get-dev-key $UTILS/get_dev_key | \
 tinman submit --realtime -t http://127.0.0.1:9990 --signer $UTILS/sign_transaction -c $CHAIN_ID --timeout 600
@@ -91,70 +100,96 @@ $UTILS/get_dev_key $SHARED_SECRET block-init-0:21 | cut -d '"' -f 4 | sed 's/^/p
 # sleep for an arbitrary amount of time before starting the seed
 sleep 10
 
-# let's get going
-echo steemd-testnet: bringing up witness / seed / full node
-cp /etc/nginx/healthcheck.conf.template /etc/nginx/healthcheck.conf
-echo server 127.0.0.1:8091\; >> /etc/nginx/healthcheck.conf
-echo } >> /etc/nginx/healthcheck.conf
-rm /etc/nginx/sites-enabled/default
-cp /etc/nginx/healthcheck.conf /etc/nginx/sites-enabled/default
-/etc/init.d/fcgiwrap restart
-service nginx restart
-exec chpst -usteemd \
-    $STEEMD \
-        --webserver-ws-endpoint=0.0.0.0:8091 \
-        --webserver-http-endpoint=0.0.0.0:8091 \
-        --p2p-endpoint=0.0.0.0:2001 \
-        --data-dir=$HOME \
-        $ARGS \
-        2>&1&
+if [[ -n "$SKIP_SEED_NODE" ]]; then
+  echo steemd-testnet: done early
+  exit 0
+else
+  # let's get going
+  echo steemd-testnet: bringing up witness / seed / full node
+  cp /etc/nginx/healthcheck.conf.template /etc/nginx/healthcheck.conf
+  echo server 127.0.0.1:8091\; >> /etc/nginx/healthcheck.conf
+  echo } >> /etc/nginx/healthcheck.conf
+  rm /etc/nginx/sites-enabled/default
+  cp /etc/nginx/healthcheck.conf /etc/nginx/sites-enabled/default
+  /etc/init.d/fcgiwrap restart
+  service nginx restart
+  exec chpst -usteemd \
+      $STEEMD \
+          --webserver-ws-endpoint=0.0.0.0:8091 \
+          --webserver-http-endpoint=0.0.0.0:8091 \
+          --p2p-endpoint=0.0.0.0:2001 \
+          --data-dir=$HOME \
+          $ARGS \
+          2>&1&
 
-# give the seed some time to start up
-sleep 120
+  # give the seed some time to start up
+  sleep 120
 
-# wait for seed to be synced before proceeding
+  # wait for seed to be synced before proceeding
 
-all_clear=1
+  all_clear=1
+  
+  if [[ -z "$SKIP_WARDEN" ]]; then
+    while [[ $all_clear -ne 0 ]]
+    do
+        tinman warden -s http://127.0.0.1:8091
+        all_clear=$?
+        echo Waiting for warden to sound the all-clear.
+        sleep 60
+    done
 
-while [[ $all_clear -ne 0 ]]
-do
-    tinman warden -s http://127.0.0.1:8091
-    all_clear=$?
-    echo Waiting for warden to sound the all-clear.
-    sleep 60
-done
+    echo steemd-testnet: seed is synced
+  fi
+fi
 
-echo steemd-testnet: seed is synced
-
-jq ".shared_secret=\"$SHARED_SECRET\"" $HOME/tinman/server.conf.example > $HOME/server.conf.temp
-jq ".transaction_target.node=\"http://127.0.0.1:8091\"" $HOME/server.conf.temp > $HOME/server.conf
-rm $HOME/server.conf.temp
-
-chown -R steemd:steemd $HOME/*
-
-echo server-testnet: starting server on port 5000
-tinman server \
-  --get-dev-key $UTILS/get_dev_key \
-  --signer $UTILS/sign_transaction \
-  --timeout 600 \
-  --chain-id $CHAIN_ID &
+if [[ -z "$SKIP_DASHBOARD" ]]; then
+  jq ".shared_secret=\"$SHARED_SECRET\"" $HOME/tinman/server.conf.example > $HOME/server.conf.temp
+  jq ".transaction_target.node=\"http://127.0.0.1:8091\"" $HOME/server.conf.temp > $HOME/server.conf
+  rm $HOME/server.conf.temp
+  
+  chown -R steemd:steemd $HOME/*
+  
+  echo server-testnet: starting server on port 5000
+  tinman server \
+    --get-dev-key $UTILS/get_dev_key \
+    --signer $UTILS/sign_transaction \
+    --timeout 600 \
+    --chain-id $CHAIN_ID &
+fi
 
 finished=0
 while [[ $finished == 0 ]]
 do
-echo steemd-testnet: launching gatling to pipe transactions from mainnet to testnet
-#launch gatling
-( \
-  echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
-  tinman durables -c durables.conf ; \
-  tinman gatling -c gatling.conf -f 0 -t 0 -o - | tinman prefixsub \
-) | \
-tinman keysub --get-dev-key $UTILS/get_dev_key | \
-tinman submit --realtime -t http://127.0.0.1:8091 \
-    --signer $UTILS/sign_transaction \
-    -c $CHAIN_ID \
-    --timeout 600
+if [[ -z "$SKIP_GATLING" ]]; then
+  echo steemd-testnet: launching gatling to pipe transactions from mainnet to testnet
+  if [[ -z "$SKIP_DURABLES" ]]; then
+    echo steemd-testnet: launching gatling to pipe transactions from mainnet to testnet
+    ( \
+      echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
+      tinman durables -c durables.conf ; \
+      tinman gatling -c gatling.conf -f 0 -t 0 -o - | tinman prefixsub \
+    ) | \
+    tinman keysub --get-dev-key $UTILS/get_dev_key | \
+    tinman submit --realtime -t http://127.0.0.1:8091 \
+        --signer $UTILS/sign_transaction \
+        -c $CHAIN_ID \
+        --timeout 600
+  else
+    echo "steemd-testnet: launching gatling (wihout durables) to pipe transactions from mainnet to testnet"
+    ( \
+      echo "[\"set_secret\", {\"secret\":\"$SHARED_SECRET\"}]" ; \
+      tinman gatling -c gatling.conf -f 0 -t 0 -o - | tinman prefixsub \
+    ) | \
+    tinman keysub --get-dev-key $UTILS/get_dev_key | \
+    tinman submit --realtime -t http://127.0.0.1:8091 \
+        --signer $UTILS/sign_transaction \
+        -c $CHAIN_ID \
+        --timeout 600
+  fi
+fi
 
 # prevent flapping
 sleep 60
 done
+
+echo steemd-testnet: done
